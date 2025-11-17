@@ -9,6 +9,7 @@ from PIL import Image
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.constants import ChatAction
+from scraper import get_all_fashion_updates
 
 # ----------------- Переменные окружения -----------------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -60,6 +61,7 @@ FASHION_SYSTEM_PROMPT = """Ты — экспертный AI-агент в обл
 user_conversations = {}
 
 # ----------------- Вспомогательная функция для DeepSeek -----------------
+
 def call_deepseek(messages):
     """
     Отправка сообщений в DeepSeek API и получение ответа.
@@ -87,6 +89,20 @@ def call_deepseek(messages):
     return data["choices"][0]["message"]["content"]
 
 # ----------------- Обработчики -----------------
+async def trends(update: Update, context):
+    await update.message.reply_text("⏳ Собираю свежие тренды с индустриальных сайтов...")
+
+    fresh_data = get_all_fashion_updates()
+
+    messages = [
+        {"role": "system", "content": FASHION_SYSTEM_PROMPT},
+        {"role": "user", "content": f"Проанализируй эти свежие данные и сделай выводы:\n\n{fresh_data}"}
+    ]
+
+    response = call_deepseek(messages)
+
+    await update.message.reply_text(response)
+
 async def start(update: Update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
@@ -190,7 +206,7 @@ def main():
     app.add_handler(CommandHandler("clear", clear_history))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-
+    app.add_handler(CommandHandler("trends", trends))
     print("✅ Бот успешно запущен и готов к работе!")
     app.run_polling()
 
